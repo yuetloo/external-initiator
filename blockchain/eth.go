@@ -3,6 +3,7 @@ package blockchain
 import (
 	"encoding/json"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -28,15 +29,26 @@ func createEthManager(p subscriber.Type, config store.Subscription) ethManager {
 		addresses = append(addresses, common.HexToAddress(a))
 	}
 
+	// Format the topics strings in config to the topics in filterQuery
+	// i.e. "0xa,0xb,0xc",null,"0xd" => [[0xa,0xb,0xc],[],[0xd]]
+	// null or [] means match everything
+	// More on filter query format:
+	//  https://docs.ethers.io/v5/concepts/events/#events--logs-and-filtering--filters
 	var topics [][]common.Hash
-	var t []common.Hash
 	for _, value := range config.Ethereum.Topics {
 		if len(value) < 1 {
+			// add an empty array to match any value
+			topics = append(topics, []common.Hash{})
 			continue
 		}
-		t = append(t, common.HexToHash(value))
+
+		var t []common.Hash
+		topicSet := strings.Split(value, ",")
+		for _, topic := range topicSet {
+			t = append(t, common.HexToHash(strings.TrimSpace(topic)))
+		}
+		topics = append(topics, t)
 	}
-	topics = append(topics, t)
 
 	return ethManager{
 		fq: &filterQuery{
